@@ -29,7 +29,7 @@ def boxes_from_mask(mask: np.ndarray) -> List[np.ndarray]:
 
 
 def resize_max_size(
-    np_img, size_limit: int, interpolation=cv2.INTER_CUBIC
+        np_img, size_limit: int, interpolation=cv2.INTER_CUBIC
 ) -> np.ndarray:
     # Resize image's longer size to size_limit if longer size larger than size_limit
     h, w = np_img.shape[:2]
@@ -41,13 +41,15 @@ def resize_max_size(
     else:
         return np_img
 
+
 def ceil_modulo(x, mod):
     if x % mod == 0:
         return x
     return (x // mod + 1) * mod
 
+
 def pad_img_to_modulo(
-    img: np.ndarray, mod: int, square: bool = False, min_size = None
+        img: np.ndarray, mod: int, square: bool = False, min_size=None
 ):
     """
 
@@ -89,3 +91,58 @@ def norm_img(np_img):
     np_img = np.transpose(np_img, (2, 0, 1))
     np_img = np_img.astype("float32") / 255
     return np_img
+
+
+def pad_batch_img_to_modulo(imgs, mod, square: bool = False, min_size=None):
+    if len(imgs[0].shape) == 2:
+        imgs = [img[:, :, np.newaxis] for img in imgs]
+    max_height = max([img.shape[0] for img in imgs])
+    max_width = max([img.shape[1] for img in imgs])
+
+    out_height = ceil_modulo(max_height, mod)
+    out_width = ceil_modulo(max_width, mod)
+
+    if min_size is not None:
+        assert min_size % mod == 0
+        out_width = max(min_size, out_width)
+        out_height = max(min_size, out_height)
+
+    if square:
+        max_size = max(out_height, out_width)
+        out_height = max_size
+        out_width = max_size
+
+    imgs = [
+        np.pad(img, ((0, out_height - img.shape[0]), (0, out_width - img.shape[1]), (0, 0)),
+               mode="symmetric")
+        for img in imgs
+    ]
+
+    return np.array(imgs)
+
+
+def norm_batch_img(batch_img: np.ndarray):
+    if len(batch_img.shape) == 3:
+        batch_img = batch_img[:, :, :, np.newaxis]
+
+    batch_img = np.transpose(batch_img, (0, 3, 1, 2))
+    batch_img = batch_img.astype('float32') / 255
+    return batch_img
+
+
+def resize_batch_img(imgs, size_limit, interpolation=cv2.INTER_CUBIC):
+    heights = [img.shape[0] for img in imgs]
+    widths = [img.shape[1] for img in imgs]
+
+    out_max_size = max ( max(heights),max(widths))
+    if out_max_size > size_limit:
+        out_max_size = size_limit
+
+    batch_image = []
+    for i in range(len(imgs)):
+        ratio = out_max_size / max(heights[i],widths[i])
+        new_width = int(widths[i]*ratio+0.5)
+        new_height = int(heights[i]*ratio +0.5)
+        batch_image.append(cv2.resize(imgs[i],dsize=(new_width,new_height),interpolation=interpolation))
+
+    return batch_image
