@@ -1,29 +1,14 @@
 import time
 
 from models.big_lama.model.lama import LaMa
-from models.big_lama.model.config import Config,HDStrategy
+from models.big_lama.model.config import LaMaConfig
 import cv2
 import numpy as np
 
 
-config = Config(
-        hd_strategy=HDStrategy.RESIZE,
-    hd_strategy_crop_margin = 100,
-    hd_strategy_crop_trigger_size = 1000,
-    hd_strategy_resize_limit = 500
+config = LaMaConfig()
 
-    # prompt: str = ""
-    # negative_prompt: str = ""
-    # # 始终是在原图尺度上的值
-    # use_croper: bool = False
-    # croper_x: int = None
-    # croper_y: int = None
-    # croper_height: int = None
-    # croper_width:
-    #  int = None
-)
-
-model = LaMa('cpu')
+model = LaMa(config)
 
 img_path = r"C:\Users\xyfuture\Pictures\origin.png"
 mask_path = r"C:\Users\xyfuture\Pictures\mask.png"
@@ -37,13 +22,13 @@ first_mask = cv2.cvtColor(mask,cv2.COLOR_BGR2GRAY)
 second_img = first_img[100:,100:]
 second_mask = first_mask[100:,100:]
 
-infer_images = [first_img for i in range(16)]
-infer_masks = [first_mask for j in range(16)]
+infer_images = [first_img for i in range(2)]
+infer_masks = [first_mask for j in range(2)]
 
 
 st = time.time()
 # for i in range(5):
-out_img = model(infer_images,infer_masks,config)
+out_img = model(infer_images,infer_masks)
 print("latency:{}".format(time.time()-st))
 
 

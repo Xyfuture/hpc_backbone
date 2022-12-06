@@ -7,7 +7,7 @@ import numpy as np
 from loguru import logger
 
 from models.big_lama.model.utils import boxes_from_mask, resize_max_size, pad_img_to_modulo
-from models.big_lama.model.config import Config,HDStrategy
+from models.big_lama.model.config import LaMaConfig
 
 
 class InpaintModel:
@@ -29,7 +29,7 @@ class InpaintModel:
         ...
 
     @abc.abstractmethod
-    def forward(self, image, mask, config: Config):
+    def forward(self, image, mask, config: LaMaConfig):
         """Input images and output images have same size
         images: [H, W, C] RGB
         masks: [H, W, 1] 255 为 masks 区域
@@ -37,7 +37,7 @@ class InpaintModel:
         """
         ...
 
-    def _pad_forward(self, image, mask, config: Config):
+    def _pad_forward(self, image, mask, config: LaMaConfig):
         origin_height, origin_width = image.shape[:2]
         pad_image = pad_img_to_modulo(
             image, mod=self.pad_mod, square=self.pad_to_square, min_size=self.min_size
@@ -60,7 +60,7 @@ class InpaintModel:
         return result
 
     @torch.no_grad()
-    def __call__(self, image, mask, config: Config):
+    def __call__(self, image, mask, config: LaMaConfig):
         """
         images: [H, W, C] RGB, not normalized
         masks: [H, W]
@@ -114,7 +114,7 @@ class InpaintModel:
 
         return inpaint_result
 
-    def _crop_box(self, image, mask, box, config: Config):
+    def _crop_box(self, image, mask, box, config: LaMaConfig):
         """
 
         Args:
@@ -166,7 +166,7 @@ class InpaintModel:
 
         return crop_img, crop_mask, [l, t, r, b]
 
-    def _run_box(self, image, mask, box, config: Config):
+    def _run_box(self, image, mask, box, config: LaMaConfig):
         """
 
         Args:
