@@ -15,6 +15,6 @@ def download_weight(path='models/big_lama/weight/big-lama.pt'):
     return path
 
 
-def load_model(config: LaMaConfig = LaMaConfig()):
-    model = LaMa(config)
+def load_model(device='cpu',config: LaMaConfig = LaMaConfig()):
+    model = LaMa(device,config)
     return model

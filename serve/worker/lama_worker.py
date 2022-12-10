@@ -11,6 +11,8 @@ import cv2
 
 
 class LaMaWorkerConfig(BaseModel):
+    device:str = 'cpu'
+
     batch_size: int = 4
     batch_timeout_limit: int = 0
 
@@ -39,7 +41,7 @@ class LaMaWorker:
         self.worker_config: LaMaWorkerConfig = worker_config
         self.model_config = model_config
 
-        self.model = load_model(self.model_config)
+        self.model = load_model(self.worker_config.device,self.model_config)
 
     def test(self, receiver):
         receive_group_name = self.worker_config.worker_group_name

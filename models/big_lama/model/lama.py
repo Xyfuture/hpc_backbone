@@ -21,14 +21,14 @@ class LaMa:
     # pad_to_square = False
     # min_size = None
 
-    def __init__(self, config:LaMaConfig):
+    def __init__(self, device='cpu', config: LaMaConfig = LaMaConfig()):
         self.config = config
-
+        self.device = device
         # model_path = r'D:\code\SWDesign\hpc_backbone\models\big_lama\weight\big-lama.pt'  # fixed path
         model_path = self.config.model_path
         logger.info(f"Load LaMa model from: {model_path}")
-        model = torch.jit.load(model_path, map_location=self.config.device)
-        model = model.to(self.config.device)
+        model = torch.jit.load(model_path, map_location=self.device)
+        model = model.to(self.device)
         model.eval()
 
         self.model = model
@@ -48,16 +48,16 @@ class LaMa:
 
         results = self.forward(pad_batch_image, pad_batch_mask)
 
-        results = [results[i][0:origin_heights[i],0:origin_widths[i],:] for i in range(len(results))]
+        results = [results[i][0:origin_heights[i], 0:origin_widths[i], :] for i in range(len(results))]
 
         inpaintings = []
         for image, mask, result in zip(images, masks, results):
             mask = mask[:, :, np.newaxis]
-            inpaintings.append(result * (mask / 255) + image[:, :, ::-1]*(1-(mask/255))) # BGR Format
+            inpaintings.append(result * (mask / 255) + image[:, :, ::-1] * (1 - (mask / 255)))  # BGR Format
 
-        return inpaintings # BGR
+        return inpaintings  # BGR
 
-    def forward(self, batch_image, batch_mask)->List[np.ndarray]:
+    def forward(self, batch_image, batch_mask) -> List[np.ndarray]:
         """Input image and output image have same size
         image: [N, H, W, C] RGB
         mask: [N, H, W]
@@ -70,19 +70,19 @@ class LaMa:
         # image = torch.from_numpy(image).unsqueeze(0).to(self.device)
         # mask = torch.from_numpy(mask).unsqueeze(0).to(self.device)
 
-        batch_image = torch.from_numpy(batch_image).to(self.config.device)
-        batch_mask = torch.from_numpy(batch_mask).to(self.config.device)
+        batch_image = torch.from_numpy(batch_image).to(self.device)
+        batch_mask = torch.from_numpy(batch_mask).to(self.device)
 
         inpainted_image = self.model(batch_image, batch_mask)
 
-        cur_res = inpainted_image.permute(0,2, 3, 1).detach().cpu().numpy()
+        cur_res = inpainted_image.permute(0, 2, 3, 1).detach().cpu().numpy()
         cur_res = np.clip(cur_res * 255, 0, 255).astype("uint8")
         # cur_res = cv2.cvtColor(cur_res, cv2.COLOR_RGB2BGR)
         cur_res = [cv2.cvtColor(img, cv2.COLOR_RGB2BGR) for img in cur_res]
         return cur_res
 
     @torch.no_grad()
-    def __call__(self, images, masks ):
+    def __call__(self, images, masks):
         """
         images: [N, H, W, C] RGB, not normalized
         masks: [N, H, W]
@@ -91,21 +91,18 @@ class LaMa:
         logger.info(f"inference task start")
         origin_shapes = [img.shape[0:2] for img in images]
 
-        reshape_images = resize_batch_img(images,self.config.resize_limit)
-        reshape_masks = resize_batch_img(masks,self.config.resize_limit)
+        reshape_images = resize_batch_img(images, self.config.resize_limit)
+        reshape_masks = resize_batch_img(masks, self.config.resize_limit)
 
-        results = self._pad_forward(reshape_images,reshape_masks)
+        results = self._pad_forward(reshape_images, reshape_masks)
 
         results = [
-            cv2.resize(img,(shape[1],shape[0]), interpolation=cv2.INTER_CUBIC)
-            for img,shape in zip(results,origin_shapes)
+            cv2.resize(img, (shape[1], shape[0]), interpolation=cv2.INTER_CUBIC)
+            for img, shape in zip(results, origin_shapes)
         ]
 
         for i in range(len(images)):
             origin_index = masks[i] < 127
-            results[i][origin_index]=images[i][:,:,::-1][origin_index]
+            results[i][origin_index] = images[i][:, :, ::-1][origin_index]
 
         return results
-
-
-
