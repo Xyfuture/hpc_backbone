@@ -5,7 +5,7 @@ import numpy as np
 from loguru import logger
 import redis.asyncio as redis
 from pydantic import BaseModel
-from models.big_lama.interface import load_model
+from models.big_lama.interface import load_lama_model
 from models.big_lama.model.config import LaMaConfig
 import cv2
 
@@ -41,7 +41,7 @@ class LaMaWorker:
         self.worker_config: LaMaWorkerConfig = worker_config
         self.model_config = model_config
 
-        self.model = load_model(self.worker_config.device,self.model_config)
+        self.model = load_lama_model(self.worker_config.device, self.model_config)
 
     def test(self, receiver):
         receive_group_name = self.worker_config.worker_group_name
