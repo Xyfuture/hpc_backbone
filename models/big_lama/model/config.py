@@ -7,7 +7,7 @@ class LaMaConfig(BaseModel):
     # device:str = 'cpu'
     pad_mod:int = 8
     pad_to_square:bool = False
-    resize_limit:int = 256
+    resize_limit:int = 512
     pad_min_size:int = 128
 
 

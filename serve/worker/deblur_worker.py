@@ -25,7 +25,7 @@ class DeBlurWorkerConfig(BaseModel):
     ack_group_name: str = 'master'
 
 
-class DeblurWorker:
+class DeBlurWorker:
     def __init__(self,worker_config:DeBlurWorkerConfig=DeBlurWorkerConfig(),
                  model_config:DeBlurConfig=DeBlurConfig()):
         self.worker_config = worker_config
@@ -57,7 +57,7 @@ class DeblurWorker:
             result = cv2.cvtColor(result, cv2.COLOR_RGB2BGR)
 
             tasks = [
-                sender.xadd(ack_stream_key,{'tag':tag,'result':pickle.dumps(result)}),
+                sender.xadd(ack_stream_key,{'tag':tag,'status':'ok','result':pickle.dumps(result)}),
                 sender.xack(worker_stream_key, worker_stream_key, tag)
             ]
             await asyncio.gather(*tasks)

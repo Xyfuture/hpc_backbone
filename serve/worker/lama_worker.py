@@ -13,7 +13,7 @@ from serve.worker.utils import read_image_from_binary, write_image_to_binary
 
 
 class LaMaWorkerConfig(BaseModel):
-    device:str = 'cpu'
+    device: str = 'cpu'
 
     batch_size: int = 4
     batch_timeout_limit: int = 0
@@ -23,7 +23,6 @@ class LaMaWorkerConfig(BaseModel):
 
     ack_stream_key: str = "Inpainting_finish_ack"
     ack_group_name: str = 'master'
-
 
 
 class LaMaWorker:
@@ -42,6 +41,13 @@ class LaMaWorker:
         payload = receiver.xreadgroup(groupname=receive_group_name, consumername='c2', block=0,
                                       count=batch_size, streams={receive_stream_key: '>'})
 
+    def input_check(self, images, masks) -> bool:
+
+        for img, msk in zip(images, masks):
+            if img.shape[:2] != msk.shape:
+                return False
+        return True
+
     async def process(self, receiver: redis.Redis, sender: redis.Redis):
         receive_group_name = self.worker_config.worker_group_name
         receive_stream_key = self.worker_config.worker_stream_key
@@ -51,6 +57,7 @@ class LaMaWorker:
         logger.info("lama worker running")
 
         while True:
+            logger.info("lama worker ready")
             payload = await receiver.xreadgroup(groupname=receive_group_name, consumername='c2', block=0,
                                                 count=batch_size, streams={receive_stream_key: '>'})
             logger.info("lama worker process new input")
@@ -59,28 +66,47 @@ class LaMaWorker:
                 tags.append(cur[0])
                 images.append(pickle.loads(cur[1][b'image']))
                 masks.append(pickle.loads(cur[1][b'mask']))
+
+            num = len(tags)
+
             # decode binary file
             images = [read_image_from_binary(image, cv2.IMREAD_COLOR) for image in images]
+
+            # for i, img in enumerate(images):
+            #     cv2.imwrite(f'test/output/origin_{i}.jpg', img)
+
             images = [cv2.cvtColor(image, cv2.COLOR_BGR2RGB) for image in images]
 
             masks = [read_image_from_binary(mask, cv2.IMREAD_GRAYSCALE) for mask in masks]
 
-            # test output
-            # for image in images:
-            #     print('here')
-            #     cv2.imwrite('color.jpg',image)
+            # for i, msk in enumerate(masks):
+            #     cv2.imwrite(f'test/output/mask_{i}.jpg', msk)
 
             logger.info("lama worker decode binary images")
-            num = len(tags)
+
+            if not self.input_check(images, masks):
+                logger.error("lama worker input not valid")
+                tasks = []
+                for i in range(num):
+                    tasks.append(sender.xadd(send_stream_key,
+                                    {'tag': tags[i], 'status': 'invalid', 'result': 'error'}))
+                    tasks.append(receiver.xack(receive_stream_key, receive_group_name, tags[i]))
+                await asyncio.gather(*tasks)
+                continue
 
             results = self.model(images, masks)
+
+            # for i, r in enumerate(results):
+            #     cv2.imwrite(f'test/output/result_{i}.jpg', r)
+
             results = [write_image_to_binary(result) for result in results]
             logger.info('lama worker finish process')
 
             tasks = []
             for i in range(num):
-                tasks.append(sender.xadd(send_stream_key, {'tag': tags[i], 'result': pickle.dumps(results[i])}))
-                tasks.append(sender.xack(receive_stream_key, receive_group_name, tags[i]))
+                tasks.append(
+                    sender.xadd(send_stream_key, {'tag': tags[i], 'status': 'ok', 'result': pickle.dumps(results[i])}))
+                tasks.append(receiver.xack(receive_stream_key, receive_group_name, tags[i]))
 
             await asyncio.gather(*tasks)
 
