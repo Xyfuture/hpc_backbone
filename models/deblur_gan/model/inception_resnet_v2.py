@@ -332,7 +332,7 @@ class InceptionResNetV2(nn.Module):
         x = self.logits(x)
         return x
 
-def inceptionresnetv2(weight_path,num_classes=1000, pretrained='imagenet'):
+def inceptionresnetv2(num_classes=1000, pretrained='imagenet'):
     r"""InceptionResNetV2 model architecture from the
     `"InceptionV4, Inception-ResNet..." <https://arxiv.org/abs/1602.07261>`_ paper.
     """
@@ -344,7 +344,7 @@ def inceptionresnetv2(weight_path,num_classes=1000, pretrained='imagenet'):
         # both 'imagenet'&'imagenet+background' are loaded from same parameters
         model = InceptionResNetV2(num_classes=1001)
         # model.load_state_dict(model_zoo.load_url(settings['url']))
-        model.load_state_dict(torch.load(weight_path))
+        # model.load_state_dict(torch.load(weight_path))
 
         if pretrained == 'imagenet':
             new_last_linear = nn.Linear(1536, 1000)

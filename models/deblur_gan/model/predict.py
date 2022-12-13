@@ -9,16 +9,16 @@ import yaml
 from fire import Fire
 from tqdm import tqdm
 
-from models.debulr_gan.util.aug import get_normalize
-from models.debulr_gan.model.networks import get_generator
+from models.deblur_gan.model.config import DeBlurConfig
+from models.deblur_gan.util.aug import get_normalize
+from models.deblur_gan.model.networks import get_generator
 
 
 class Predictor:
-    def __init__(self, weights_path: str, model_name: str = ''):
-        with open('config/config.yaml',encoding='utf-8') as cfg:
-            config = yaml.load(cfg, Loader=yaml.FullLoader)
-        model = get_generator(model_name or config['model'])
-        model.load_state_dict(torch.load(weights_path,map_location=torch.device('cpu'))['model'])
+    def __init__(self, device:str='cpu',config=DeBlurConfig()):
+        self.config = config
+        model = get_generator(config)
+        model.load_state_dict(torch.load(config.weight_path,map_location=torch.device(device))['model'])
         # self.model = model.cuda()
         self.model = model
         self.model.train(True)
@@ -32,7 +32,7 @@ class Predictor:
         x = np.expand_dims(x, 0)
         return torch.from_numpy(x)
 
-    def _preprocess(self, x: np.ndarray, mask: Optional[np.ndarray]):
+    def _preprocess(self, x: np.ndarray, mask: Optional[np.ndarray]=None):
         x, _ = self.normalize_fn(x, x)
         if mask is None:
             mask = np.ones_like(x, dtype=np.float32)
@@ -60,7 +60,8 @@ class Predictor:
         x = (np.transpose(x, (1, 2, 0)) + 1) / 2.0 * 255.0
         return x.astype('uint8')
 
-    def __call__(self, img: np.ndarray, mask: Optional[np.ndarray], ignore_mask=True) -> np.ndarray:
+    @torch.no_grad()
+    def __call__(self, img: np.ndarray, mask: Optional[np.ndarray]=None, ignore_mask=True) -> np.ndarray:
         (img, mask), h, w = self._preprocess(img, mask)
         with torch.no_grad():
             # inputs = [img.cuda()]
@@ -70,32 +71,12 @@ class Predictor:
             pred = self.model(*inputs)
         return self._postprocess(pred)[:h, :w, :]
 
-def process_video(pairs, predictor, output_dir):
-    for video_filepath, mask in tqdm(pairs):
-        video_filename = os.path.basename(video_filepath)
-        output_filepath = os.path.join(output_dir, os.path.splitext(video_filename)[0]+'_deblur.mp4')
-        video_in = cv2.VideoCapture(video_filepath)
-        fps = video_in.get(cv2.CAP_PROP_FPS)
-        width = int(video_in.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(video_in.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        total_frame_num = int(video_in.get(cv2.CAP_PROP_FRAME_COUNT))
-        video_out = cv2.VideoWriter(output_filepath, cv2.VideoWriter_fourcc(*'MP4V'), fps, (width, height))
-        tqdm.write(f'process {video_filepath} to {output_filepath}, {fps}fps, resolution: {width}x{height}')
-        for frame_num in tqdm(range(total_frame_num), desc=video_filename):
-            res, img = video_in.read()
-            if not res:
-                break
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            pred = predictor(img, mask)
-            pred = cv2.cvtColor(pred, cv2.COLOR_RGB2BGR)
-            video_out.write(pred)
 
 def main(img_pattern: str,
          mask_pattern: Optional[str] = None,
          weights_path='fpn_inception.h5',
          out_dir='submit/',
-         side_by_side: bool = False,
-         video: bool = False):
+         side_by_side: bool = False):
     def sorted_glob(pattern):
         return sorted(glob(pattern))
 
@@ -106,20 +87,19 @@ def main(img_pattern: str,
     predictor = Predictor(weights_path=weights_path)
 
     os.makedirs(out_dir, exist_ok=True)
-    if not video:
-        for name, pair in tqdm(zip(names, pairs), total=len(names)):
-            f_img, f_mask = pair
-            img, mask = map(cv2.imread, (f_img, f_mask))
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-            pred = predictor(img, mask)
-            if side_by_side:
-                pred = np.hstack((img, pred))
-            pred = cv2.cvtColor(pred, cv2.COLOR_RGB2BGR)
-            cv2.imwrite(os.path.join(out_dir, name),
-                        pred)
-    else:
-        process_video(pairs, predictor, out_dir)
+    for name, pair in tqdm(zip(names, pairs), total=len(names)):
+        f_img, f_mask = pair
+        img, mask = map(cv2.imread, (f_img, f_mask))
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        pred = predictor(img, mask)
+        if side_by_side:
+            pred = np.hstack((img, pred))
+        pred = cv2.cvtColor(pred, cv2.COLOR_RGB2BGR)
+        cv2.imwrite(os.path.join(out_dir, name),
+                    pred)
+
 
 # def getfiles():
 #     filenames = os.listdir(r'.\dataset1\blur')

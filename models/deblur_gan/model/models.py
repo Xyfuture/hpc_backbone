@@ -1,7 +1,7 @@
 import numpy as np
 import torch.nn as nn
 from skimage.metrics import structural_similarity as SSIM
-from models.debulr_gan.util.metrics import PSNR
+from models.deblur_gan.util.metrics import PSNR
 
 
 class DeblurModel(nn.Module):

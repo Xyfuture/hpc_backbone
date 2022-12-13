@@ -9,6 +9,8 @@ from models.big_lama.interface import load_lama_model
 from models.big_lama.model.config import LaMaConfig
 import cv2
 
+from serve.worker.utils import read_image_from_binary, write_image_to_binary
+
 
 class LaMaWorkerConfig(BaseModel):
     device:str = 'cpu'
@@ -22,18 +24,6 @@ class LaMaWorkerConfig(BaseModel):
     ack_stream_key: str = "Inpainting_finish_ack"
     ack_group_name: str = 'master'
 
-
-def read_image_from_binary(byte_obj, color=cv2.IMREAD_COLOR):
-    img = np.frombuffer(byte_obj, dtype='uint8')
-    img = cv2.imdecode(img, color)
-    return img
-
-
-def write_image_to_binary(img):
-    img = cv2.imencode('.jpg', img)
-    assert img[0]
-    byte_obj = img[1].tobytes()
-    return byte_obj
 
 
 class LaMaWorker:

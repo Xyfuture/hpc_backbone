@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from models.debulr_gan.model.inception_resnet_v2 import inceptionresnetv2
+from models.deblur_gan.model.inception_resnet_v2 import inceptionresnetv2
 from torchsummary import summary
 import torch.nn.functional as F
 
