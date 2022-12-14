@@ -9,7 +9,7 @@ from models.deblur_gan.interface import load_deblur_model
 from models.deblur_gan.model.config import DeBlurConfig
 import cv2
 
-from serve.worker.utils import read_image_from_binary
+from serve.worker.utils import read_image_from_binary,write_image_to_binary
 
 
 class DeBlurWorkerConfig(BaseModel):
@@ -45,8 +45,8 @@ class DeBlurWorker:
                                                 count=1,streams={worker_stream_key:'>'})
             logger.info("deblur worker process new input")
 
-            tag =payload[0][1][0]
-            image = pickle.loads(payload[0][1][1][b'image'])
+            tag =payload[0][1][0][0]
+            image = pickle.loads(payload[0][1][0][1][b'image'])
 
             image = read_image_from_binary(image,cv2.IMREAD_COLOR)
             image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
@@ -55,6 +55,8 @@ class DeBlurWorker:
 
             result = self.model(image)
             result = cv2.cvtColor(result, cv2.COLOR_RGB2BGR)
+            result = write_image_to_binary(result)
+            # cv2.imwrite('deblur.jpg',result)
 
             tasks = [
                 sender.xadd(ack_stream_key,{'tag':tag,'status':'ok','result':pickle.dumps(result)}),
