@@ -42,10 +42,11 @@ class LaMaWorker:
                                       count=batch_size, streams={receive_stream_key: '>'})
 
     def input_check(self, images, masks) -> bool:
-
-        for img, msk in zip(images, masks):
+        for i,tmp in enumerate(zip(images, masks)):
+            img,msk = tmp
             if img.shape[:2] != msk.shape:
-                return False
+                # return False
+                masks[i] = cv2.resize(msk,(img.shape[1],img.shape[0]))
         return True
 
     async def process(self, receiver: redis.Redis, sender: redis.Redis):
